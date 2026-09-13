@@ -15,7 +15,7 @@ RUN test -f server/index.js \
     && test -f server/migrate.js \
     && test -f server/worker.js \
     && test -f server/scheduler.js \
-    && echo "LifeOS server files verified"
+    && echo "Synchrified server files verified"
 
 USER node
 

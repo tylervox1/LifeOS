@@ -14,10 +14,10 @@ export async function notifyDailyBrief(pool,userId){
   const key=`daily-brief:${b.local_date}`;
   const exists=await pool.query(`SELECT 1 FROM notification_log WHERE user_id=$1 AND dedupe_key=$2`,[userId,key]);
   if(exists.rowCount)return;
-  const result=await sendPushToUser(pool,userId,{title:'Your LifeOS Daily Brief',body:b.content,url:'/?view=today',tag:key});
+  const result=await sendPushToUser(pool,userId,{title:'Your Synchrified Daily Brief',body:b.content,url:'/?view=today',tag:key});
   await pool.query(`INSERT INTO notification_log(user_id,notification_type,dedupe_key,title,body,delivered_count,failed_count)
     VALUES($1,'daily_brief',$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING`,
-    [userId,key,'Your LifeOS Daily Brief',b.content,result.delivered,result.failed]);
+    [userId,key,'Your Synchrified Daily Brief',b.content,result.delivered,result.failed]);
 }
 
 export async function notifyNewAlerts(pool,userId){
@@ -27,7 +27,7 @@ export async function notifyNewAlerts(pool,userId){
   for(const a of alerts){
     const key=`alert:${a.id}`;
     if((await pool.query(`SELECT 1 FROM notification_log WHERE user_id=$1 AND dedupe_key=$2`,[userId,key])).rowCount)continue;
-    const result=await sendPushToUser(pool,userId,{title:a.title,body:a.summary||'LifeOS found something that may need your attention.',url:'/?view=today',tag:key});
+    const result=await sendPushToUser(pool,userId,{title:a.title,body:a.summary||'Synchrified found something that may need your attention.',url:'/?view=today',tag:key});
     await pool.query(`INSERT INTO notification_log(user_id,notification_type,dedupe_key,title,body,delivered_count,failed_count)
       VALUES($1,'alert',$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING`,
       [userId,key,a.title,a.summary||null,result.delivered,result.failed]);

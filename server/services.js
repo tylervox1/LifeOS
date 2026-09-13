@@ -37,7 +37,7 @@ async function generateBrief(pool,userId){
   if(process.env.OPENAI_API_KEY){
     try{
       const r=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${process.env.OPENAI_API_KEY}`},body:JSON.stringify({
-        model:process.env.OPENAI_MODEL||'gpt-5.6',input:`Write a concise LifeOS daily brief. Alerts:${JSON.stringify(a.rows)} Events:${JSON.stringify(e.rows)} Tasks:${JSON.stringify(t.rows)}`})});
+        model:process.env.OPENAI_MODEL||'gpt-5.6',input:`Write a concise Synchrified daily brief. Alerts:${JSON.stringify(a.rows)} Events:${JSON.stringify(e.rows)} Tasks:${JSON.stringify(t.rows)}`})});
       const d=await r.json();if(r.ok)text=d.output_text||'';
     }catch{}
   }
@@ -59,11 +59,11 @@ export async function processJob(pool,j){
     case 'generate_daily_brief': { const r=await generateBrief(pool,j.user_id); await notifyDailyBrief(pool,j.user_id); return r; }
     case 'send_verification_email': {
       const base=appPublicUrl(); if(!base) throw new Error('Public app URL is not configured for email links');
-      return sendTransactional({to:j.payload.email,subject:'Verify your LifeOS email',text:`Verify: ${base}/?verify=${j.payload.token}`});
+      return sendTransactional({to:j.payload.email,subject:'Verify your Synchrified email',text:`Verify: ${base}/?verify=${j.payload.token}`});
     }
     case 'send_password_reset_email': {
       const base=appPublicUrl(); if(!base) throw new Error('Public app URL is not configured for email links');
-      return sendTransactional({to:j.payload.email,subject:'Reset your LifeOS password',text:`Reset: ${base}/?reset=${j.payload.token}`});
+      return sendTransactional({to:j.payload.email,subject:'Reset your Synchrified password',text:`Reset: ${base}/?reset=${j.payload.token}`});
     }
     default: throw new Error(`Unknown job type: ${j.job_type}`);
   }

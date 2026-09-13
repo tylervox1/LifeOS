@@ -1,7 +1,7 @@
 {
-  "name": "LifeOS",
-  "short_name": "LifeOS",
-  "description": "Your AI Chief of Staff",
+  "name": "Synchrified",
+  "short_name": "Synchrified",
+  "description": "Your AI Chief of Staff — tasks, calendar, inbox, and priorities synchronized.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0b1020",

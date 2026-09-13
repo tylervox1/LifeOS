@@ -1,6 +1,6 @@
 {
-  "appId": "com.lifeos.app",
-  "appName": "LifeOS",
+  "appId": "com.synchrified.app",
+  "appName": "Synchrified",
   "webDir": "public",
   "server": {
     "androidScheme": "https"

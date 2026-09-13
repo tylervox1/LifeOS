@@ -1,4 +1,4 @@
-const CACHE = 'lifeos-v3.1-static-v1';
+const CACHE = 'synchrified-v3.1-static-v1';
 const SHELL = ['/', '/manifest.webmanifest'];
 
 self.addEventListener('install', event => {
@@ -48,9 +48,9 @@ self.addEventListener('fetch', event => {
 self.addEventListener('push', event => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch {}
-  const title = data.title || 'LifeOS';
+  const title = data.title || 'Synchrified';
   const options = {
-    body: data.body || 'You have a new LifeOS update.',
+    body: data.body || 'You have a new Synchrified update.',
     icon: '/icons/icon-192.png',
     badge: '/icons/icon-192.png',
     data: { url: data.url || '/' }

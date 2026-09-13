@@ -64,11 +64,11 @@ export async function tick() {
     }
   }
 
-  logger.info({ users: users.length }, 'LifeOS scheduler tick completed');
+  logger.info({ users: users.length }, 'Synchrified scheduler tick completed');
 }
 
 async function runOnce() {
-  logger.info('LifeOS scheduler one-shot run starting');
+  logger.info('Synchrified scheduler one-shot run starting');
   try {
     await tick();
   } finally {
@@ -77,12 +77,12 @@ async function runOnce() {
 }
 
 async function runContinuous() {
-  logger.info({ pollMs: poll }, 'LifeOS continuous scheduler starting');
+  logger.info({ pollMs: poll }, 'Synchrified continuous scheduler starting');
   while (true) {
     try {
       await tick();
     } catch (error) {
-      logger.error({ error }, 'LifeOS scheduler tick failed');
+      logger.error({ error }, 'Synchrified scheduler tick failed');
     }
     await sleep(poll);
   }
@@ -90,12 +90,12 @@ async function runContinuous() {
 
 if (process.env.SCHEDULER_ONESHOT === 'true') {
   runOnce().catch(error => {
-    logger.error({ error }, 'LifeOS scheduler one-shot failed');
+    logger.error({ error }, 'Synchrified scheduler one-shot failed');
     process.exitCode = 1;
   });
 } else {
   runContinuous().catch(error => {
-    logger.error({ error }, 'LifeOS scheduler failed');
+    logger.error({ error }, 'Synchrified scheduler failed');
     process.exitCode = 1;
   });
 }

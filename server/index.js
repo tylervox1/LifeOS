@@ -321,7 +321,7 @@ app.get('/api/account/export',async(req,res)=>{
   const tables=['tasks','inbox_items','events','memories','memory_candidates','proactive_alerts','daily_briefs','approvals','audit_log'];
   const out={exportedAt:new Date().toISOString(),user:{id:req.user.id,email:req.user.email,name:req.user.name,timezone:req.user.timezone}};
   for(const t of tables)out[t]=(await pool.query(`SELECT * FROM ${t} WHERE user_id=$1 ORDER BY 1`,[uid])).rows;
-  res.setHeader('Content-Disposition','attachment; filename="lifeos-export.json"');res.json(out)
+  res.setHeader('Content-Disposition','attachment; filename="synchrified-export.json"');res.json(out)
 });
 app.delete('/api/account',async(req,res)=>{
   const uid=req.user.id;await pool.query(`DELETE FROM users WHERE id=$1`,[uid]);res.clearCookie('lifeos_session');res.json({ok:true})
@@ -332,6 +332,6 @@ app.get('/api/jobs',async(req,res)=>res.json((await pool.query(`SELECT id,job_ty
 
 app.use((err,req,res,next)=>{req.log?.error({err},'request failed');captureError(err,{path:req.path});res.status(500).json({error:'internal server error'})});
 if(process.env.NO_LISTEN!=='true'){
-  app.listen(PORT,()=>logger.info({port:PORT},'LifeOS V2.7 API started'));
+  app.listen(PORT,()=>logger.info({port:PORT},'Synchrified API started'));
 }
 export { app, pool };

@@ -15,7 +15,7 @@ export async function assistantTurn(pool,userId,message){
   ]);
   const r=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${process.env.OPENAI_API_KEY}`},body:JSON.stringify({
     model:process.env.OPENAI_MODEL||'gpt-5.6',
-    instructions:`You are LifeOS. Be concise. Never claim an external action happened unless execution_result confirms it. Tool calls are proposals only. User context: ${JSON.stringify({tasks:tasks.rows,memories:mem.rows})}`,
+    instructions:`You are Synchrified, the user's AI Chief of Staff. Be concise. Never claim an external action happened unless execution_result confirms it. Tool calls are proposals only. User context: ${JSON.stringify({tasks:tasks.rows,memories:mem.rows})}`,
     input:message,tools
   })});
   const d=await r.json();if(!r.ok)throw new Error(`AI API ${r.status}`);
