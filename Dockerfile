@@ -4,9 +4,9 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-COPY package.json package-lock.json ./
+COPY package*.json ./
 
-RUN npm ci --omit=dev \
+RUN if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit=dev; fi \
     && npm cache clean --force
 
 COPY . .
