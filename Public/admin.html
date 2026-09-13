@@ -1,0 +1,22 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LifeOS Admin</title>
+<style>
+body{font-family:system-ui;margin:0;background:#0b1020;color:#f7f8fb}.wrap{max-width:1180px;margin:auto;padding:28px}.card{background:#121a2f;border:1px solid #283450;border-radius:16px;padding:18px;margin:14px 0}.row{display:flex;gap:10px;flex-wrap:wrap}.field,button{font:inherit;padding:10px;border-radius:10px;border:1px solid #283450;background:#0c1324;color:#fff}.field{min-width:180px}button{cursor:pointer}.primary{background:#6d5dfc}table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:9px;border-bottom:1px solid #283450}.muted{color:#9eabc5}.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.kpi b{display:block;font-size:26px}@media(max-width:800px){.kpis{grid-template-columns:1fr 1fr}.wrap{padding:14px}table{font-size:12px}}
+</style></head><body><div class="wrap">
+<h1>LifeOS Admin</h1><div class="muted">Public beta operations console</div>
+<div class="card"><div class="row"><input id="key" class="field" type="password" placeholder="Admin API key"><button class="primary" onclick="loadAll()">Load console</button></div><div id="msg" class="muted"></div></div>
+<div class="kpis"><div class="card kpi"><span class="muted">Users</span><b id="users">—</b></div><div class="card kpi"><span class="muted">Waiting</span><b id="waiting">—</b></div><div class="card kpi"><span class="muted">Open tickets</span><b id="tickets">—</b></div><div class="card kpi"><span class="muted">Failed jobs</span><b id="jobs">—</b></div></div>
+<div class="card"><h3>Create invite</h3><div class="row"><input id="label" class="field" placeholder="Label"><input id="uses" class="field" type="number" min="1" value="1" placeholder="Max uses"><button class="primary" onclick="createInvite()">Create invite</button></div><pre id="inviteOut"></pre></div>
+<div class="card"><h3>Waitlist</h3><div id="waitlist"></div></div>
+<div class="card"><h3>Invites</h3><div id="invites"></div></div>
+<div class="card"><h3>Support</h3><div id="support"></div></div>
+</div>
+<script>
+const $=s=>document.querySelector(s);let csrf=null;
+async function authCsrf(){const r=await fetch('/api/csrf');if(!r.ok)throw Error('Sign in to LifeOS first, then open this admin page.');const d=await r.json();csrf=d.csrf}
+async function api(u,o={}){if(csrf===null)await authCsrf();const h={'Content-Type':'application/json','x-admin-key':$('#key').value};if(csrf&& !['GET','HEAD'].includes((o.method||'GET').toUpperCase()))h['x-csrf-token']=csrf;const r=await fetch(u,{...o,headers:{...h,...(o.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||r.statusText);return d}
+function table(rows,cols){if(!rows.length)return '<div class="muted">No records</div>';return '<table><thead><tr>'+cols.map(c=>'<th>'+c[0]+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+cols.map(c=>'<td>'+(c[1](r)??'')+'</td>').join('')+'</tr>').join('')+'</tbody></table>'}
+async function loadAll(){try{sessionStorage.setItem('lifeos_admin_key',$('#key').value);const [s,w,i,t]=await Promise.all([api('/api/admin/summary'),api('/api/admin/waitlist'),api('/api/admin/invites'),api('/api/admin/support')]);$('#users').textContent=s.users;$('#waiting').textContent=w.filter(x=>x.status==='waiting').length;$('#tickets').textContent=t.filter(x=>x.status==='open').length;$('#jobs').textContent=(s.jobs.find(x=>x.status==='failed')||{c:0}).c;$('#waitlist').innerHTML=table(w,[['Email',x=>x.email],['Name',x=>x.name],['Status',x=>x.status],['Created',x=>new Date(x.created_at).toLocaleString()]]);$('#invites').innerHTML=table(i,[['Label',x=>x.label],['Uses',x=>x.used_count+'/'+x.max_uses],['Expires',x=>x.expires_at||'—'],['Disabled',x=>x.disabled_at?'Yes':'No']]);$('#support').innerHTML=table(t,[['Subject',x=>x.subject],['Email',x=>x.email],['Status',x=>x.status],['Created',x=>new Date(x.created_at).toLocaleString()]]);$('#msg').textContent='Loaded'}catch(e){$('#msg').textContent=e.message}}
+async function createInvite(){try{const d=await api('/api/admin/invites',{method:'POST',body:JSON.stringify({label:$('#label').value,maxUses:Number($('#uses').value)||1})});$('#inviteOut').textContent='Invite code: '+d.code+'\\nCopy it now. Only the hash is stored.';await loadAll()}catch(e){$('#msg').textContent=e.message}}
+$('#key').value=sessionStorage.getItem('lifeos_admin_key')||'';
+</script></body></html>
