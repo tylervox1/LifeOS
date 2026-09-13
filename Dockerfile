@@ -7,7 +7,7 @@ RUN npm install --omit=dev && npm cache clean --force
 
 COPY . .
 
-RUN echo "=== /app/server ===" && ls -la /app/server && echo "=== migrate.js ===" && stat /app/server/migrate.js
+RUN echo "=== CONTENTS OF /app ===" && find /app -maxdepth 3 -type f | sort
 
 RUN chown -R node:node /app
 USER node
