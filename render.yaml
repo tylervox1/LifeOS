@@ -9,6 +9,7 @@ services:
     name: lifeos-api
     runtime: docker
     dockerfilePath: ./Dockerfile
+    dockerContext: .
     dockerCommand: npm start
     plan: 0.5c-512mb
     preDeployCommand: npm run migrate
@@ -40,6 +41,7 @@ services:
     name: lifeos-worker
     runtime: docker
     dockerfilePath: ./Dockerfile
+    dockerContext: .
     dockerCommand: npm run worker
     plan: 0.5c-512mb
     maxShutdownDelaySeconds: 60
@@ -57,6 +59,7 @@ services:
     name: lifeos-scheduler
     runtime: docker
     dockerfilePath: ./Dockerfile
+    dockerContext: .
     dockerCommand: npm run scheduler:once
     plan: 0.5c-512mb
     schedule: "*/15 * * * *"
