@@ -1,0 +1,30 @@
+LIFEOS V3.1.2 — CLEAN GITHUB / RENDER REPLACEMENT
+
+IMPORTANT: Upload the CONTENTS of this ZIP to the ROOT of the GitHub repository.
+Do not place them inside another folder.
+
+At the GitHub repository root you must see:
+  Dockerfile
+  render.yaml
+  package.json
+  server/
+  db/
+  public/
+  scripts/
+
+Inside server/ you must see:
+  index.js
+  migrate.js
+  worker.js
+  scheduler.js
+
+Recommended replacement procedure:
+1. Back up or create a fresh GitHub repository.
+2. Remove the old project files from the repository (keep .git internal metadata).
+3. Upload all contents of this package to the repository ROOT.
+4. Commit to the branch Render deploys (normally main).
+5. In Render, Sync Blueprint.
+6. For lifeos-api, Clear build cache & deploy.
+
+The Dockerfile now deliberately fails the build if the required server files are missing.
+The render.yaml explicitly sets dockerContext: . for API, worker, and scheduler.
