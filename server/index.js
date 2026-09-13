@@ -2,7 +2,7 @@
 import 'dotenv/config';
 import express from 'express';import cookieParser from 'cookie-parser';import pg from 'pg';import helmet from 'helmet';import rateLimit from 'express-rate-limit';import pinoHttp from 'pino-http';import { logger } from './logger.js';
 import {authMiddleware,csrfGuard,createSession,register,login,issueAuthToken} from './auth.js';import {validateProductionConfig} from './config.js';import {validateInvite,redeemInvite,createInvite} from './invites.js';import {register as metricsRegister,httpRequests,collectJobMetrics} from './metrics.js';import {vapidPublicKey} from './push.js';import {planFor} from './plans.js';import {incrementUsage,currentUsage} from './usage.js';import {createCheckoutSession,createPortalSession,handleStripeWebhook} from './billing.js';import {captureProductEvent,captureError} from './telemetry.js';import {adminGuard} from './admin.js';
-import {hashToken} from './crypto.js';import {googleAuthUrl,handleGoogleCallback,disconnectGoogle,verifyPubSub} from './google.js';
+import {hashToken,randomToken} from './crypto.js';import {googleAuthUrl,handleGoogleCallback,disconnectGoogle,verifyPubSub} from './google.js';
 import {enqueue} from './jobs.js';import {assistantTurn} from './assistant.js';import {decideApproval} from './actions.js';
 
 validateProductionConfig();
@@ -92,6 +92,64 @@ app.post('/api/auth/register',authLimit,async(req,res)=>{
     res.status(201).json({user:u,csrf:s.csrf});
   }catch(e){res.status(400).json({error:e.message})}
 });
+app.post('/api/auth/login',authLimit,async(req,res)=>{
+  try{
+    const u=await login(pool,req.body);
+    const s=await createSession(pool,u,req,res);
+    res.json({user:{id:u.id,email:u.email,name:u.name,timezone:u.timezone},csrf:s.csrf});
+  }catch(e){res.status(401).json({error:e.message})}
+});
+
+app.get('/api/google/callback',async(req,res)=>{
+  try{
+    await handleGoogleCallback(pool,{code:req.query.code,state:req.query.state});
+    res.redirect('/?google=connected');
+  }catch(e){
+    req.log?.error({err:e},'Google OAuth callback failed');
+    res.redirect('/?google=error');
+  }
+});
+
+app.use((req,res,next)=>authMiddleware(pool,req,res,next));
+app.use(csrfGuard);
+
+app.get('/api/me',(req,res)=>res.json({user:{
+  id:req.user.id,
+  email:req.user.email,
+  name:req.user.name,
+  timezone:req.user.timezone,
+  plan:req.user.plan,
+  emailVerifiedAt:req.user.email_verified_at
+}}));
+
+app.get('/api/csrf',async(req,res)=>{
+  const token=randomToken();
+  await pool.query(`UPDATE sessions SET csrf_hash=$1,last_seen_at=now() WHERE id=$2 AND user_id=$3`,[
+    hashToken(token),req.session.id,req.user.id
+  ]);
+  res.json({csrf:token});
+});
+
+app.post('/api/auth/logout',async(req,res)=>{
+  await pool.query(`DELETE FROM sessions WHERE id=$1 AND user_id=$2`,[req.session.id,req.user.id]);
+  res.clearCookie('lifeos_session');
+  res.json({ok:true});
+});
+
+app.get('/api/google/start',(req,res)=>{
+  if(!process.env.GOOGLE_CLIENT_ID||!process.env.GOOGLE_CLIENT_SECRET||!process.env.GOOGLE_REDIRECT_URI){
+    return res.status(503).json({error:'Google OAuth is not configured'});
+  }
+  res.redirect(googleAuthUrl(req.user.id));
+});
+
+app.delete('/api/google',async(req,res)=>{
+  try{
+    await disconnectGoogle(pool,req.user.id);
+    res.json({ok:true});
+  }catch(e){res.status(400).json({error:e.message})}
+});
+
 app.post('/api/push/subscribe',async(req,res)=>{
   const s=req.body;if(!s?.endpoint||!s?.keys?.p256dh||!s?.keys?.auth)return res.status(400).json({error:'invalid subscription'});
   await pool.query(`INSERT INTO push_subscriptions(user_id,endpoint,p256dh,auth,user_agent) VALUES($1,$2,$3,$4,$5)
