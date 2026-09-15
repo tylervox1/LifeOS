@@ -96,17 +96,23 @@ async function upsertMessage(pool,userId,m,access){
 export async function syncGmail(pool,userId){
   const {access}=await account(pool,userId);
   const st=(await pool.query(`SELECT * FROM sync_state WHERE user_id=$1 AND provider='gmail'`,[userId])).rows[0];
-  if(st?.cursor){
+  const needsMetadata=(await pool.query(`SELECT EXISTS(SELECT 1 FROM (SELECT metadata FROM inbox_items WHERE user_id=$1 AND source='gmail' AND occurred_at>now()-interval '60 days' ORDER BY occurred_at DESC LIMIT 100) recent WHERE NOT (metadata ? 'labelIds')) AS needed`,[userId])).rows[0].needed;
+  if(st?.cursor&&!needsMetadata){
     try{
       let pageToken=null,latest=st.cursor,ids=new Set();
       do{
-        const q=new URLSearchParams({startHistoryId:st.cursor,historyTypes:'messageAdded'});
+        const q=new URLSearchParams({startHistoryId:st.cursor});
         if(pageToken)q.set('pageToken',pageToken);
         const d=await api(`${GMAIL}/history?${q}`,access);latest=d.historyId||latest;
-        for(const h of d.history||[])for(const a of h.messagesAdded||[])ids.add(a.message.id);
+        for(const h of d.history||[])for(const field of ['messagesAdded','labelsAdded','labelsRemoved','messagesDeleted'])for(const a of h[field]||[])ids.add(a.message.id);
         pageToken=d.nextPageToken||null;
       }while(pageToken);
-      for(const id of ids)await upsertMessage(pool,userId,{id},access);
+      for(const id of ids){
+        try{await upsertMessage(pool,userId,{id},access);}catch(e){
+          if(e.status!==404)throw e;
+          await pool.query(`UPDATE inbox_items SET metadata=jsonb_set(COALESCE(metadata,'{}'::jsonb),'{labelIds}','["TRASH"]'::jsonb) WHERE user_id=$1 AND source='gmail' AND source_id=$2`,[userId,id]);
+        }
+      }
       await pool.query(
         `INSERT INTO sync_state(user_id,provider,cursor,last_incremental_sync_at,last_error) VALUES($1,'gmail',$2,now(),NULL)
          ON CONFLICT(user_id,provider) DO UPDATE SET cursor=EXCLUDED.cursor,last_incremental_sync_at=now(),last_error=NULL,updated_at=now()`,
