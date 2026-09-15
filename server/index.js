@@ -4,6 +4,7 @@ import express from 'express';import cookieParser from 'cookie-parser';import pg
 import {authMiddleware,csrfGuard,createSession,register,login,issueAuthToken} from './auth.js';import {validateProductionConfig} from './config.js';import {validateInvite,redeemInvite,createInvite} from './invites.js';import {register as metricsRegister,httpRequests,collectJobMetrics} from './metrics.js';import {vapidPublicKey} from './push.js';import {planFor} from './plans.js';import {incrementUsage,currentUsage} from './usage.js';import {createCheckoutSession,createPortalSession,handleStripeWebhook} from './billing.js';import {captureProductEvent,captureError} from './telemetry.js';import {adminGuard} from './admin.js';
 import {hashToken,randomToken} from './crypto.js';import {googleAuthUrl,handleGoogleCallback,disconnectGoogle,verifyPubSub} from './google.js';
 import {enqueue} from './jobs.js';import {assistantTurn} from './assistant.js';import {decideApproval} from './actions.js';
+import {mountWorkspace} from './workspace.js';
 
 validateProductionConfig();
 const {Pool}=pg,app=express(),PORT=process.env.PORT||3000,pool=new Pool({connectionString:process.env.DATABASE_URL});
@@ -112,6 +113,7 @@ app.get('/api/google/callback',async(req,res)=>{
 
 app.use((req,res,next)=>authMiddleware(pool,req,res,next));
 app.use(csrfGuard);
+mountWorkspace(app,pool);
 
 app.get('/api/me',(req,res)=>res.json({user:{
   id:req.user.id,
@@ -318,8 +320,9 @@ app.post('/api/approvals/:id/decision',async(req,res)=>{try{res.json(await decid
 
 app.get('/api/account/export',async(req,res)=>{
   const uid=req.user.id;
-  const tables=['tasks','inbox_items','events','memories','memory_candidates','proactive_alerts','daily_briefs','approvals','audit_log'];
+  const tables=['tasks','inbox_items','events','memories','memory_candidates','proactive_alerts','daily_briefs','approvals','audit_log','attention_items','attention_scans'];
   const out={exportedAt:new Date().toISOString(),user:{id:req.user.id,email:req.user.email,name:req.user.name,timezone:req.user.timezone}};
+  out.dashboard=(await pool.query("SELECT preferences->'dashboard' AS layout FROM users WHERE id=$1",[uid])).rows[0]?.layout||null;
   for(const t of tables)out[t]=(await pool.query(`SELECT * FROM ${t} WHERE user_id=$1 ORDER BY 1`,[uid])).rows;
   res.setHeader('Content-Disposition','attachment; filename="synchrified-export.json"');res.json(out)
 });

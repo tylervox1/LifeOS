@@ -2,6 +2,7 @@
 import crypto from 'crypto';
 import {OAuth2Client} from 'google-auth-library';
 import {encrypt,decrypt} from './crypto.js';
+import {safeText} from './attention.js';
 
 const TOKEN=process.env.GOOGLE_TOKEN_URL||'https://oauth2.googleapis.com/token', GMAIL=process.env.GOOGLE_GMAIL_BASE||'https://gmail.googleapis.com/gmail/v1/users/me', CAL=process.env.GOOGLE_CALENDAR_BASE||'https://www.googleapis.com/calendar/v3';
 const WRITE=String(process.env.GOOGLE_WRITE_ACTIONS_ENABLED||'false')==='true';
@@ -86,7 +87,7 @@ async function upsertMessage(pool,userId,m,access){
      VALUES($1,'gmail',$2,$3,$4,$5,$6,$7,to_timestamp($8/1000.0),$9)
      ON CONFLICT(user_id,source,source_id) DO UPDATE SET title=EXCLUDED.title,summary=EXCLUDED.summary,category=EXCLUDED.category,
      importance=EXCLUDED.importance,action_required=EXCLUDED.action_required,occurred_at=EXCLUDED.occurred_at,metadata=EXCLUDED.metadata,updated_at=now()`,
-    [userId,full.id,subject,(body||headers.from||'').slice(0,500),c.category,c.importance,c.action,Number(full.internalDate||Date.now()),{from:headers.from||null,threadId:full.threadId}]
+    [userId,full.id,safeText(subject),safeText(body||headers.from||'').slice(0,500),c.category,c.importance,c.action,Number(full.internalDate||Date.now()),{from:headers.from||null,threadId:full.threadId,labelIds:full.labelIds||[],analysisText:safeText(body).slice(0,1800)}]
   );
   if(c.importance>=.85)await pool.query(
     `INSERT INTO memory_candidates(user_id,memory_type,content,confidence,source_id) VALUES($1,'context',$2,.75,$3) ON CONFLICT DO NOTHING`,

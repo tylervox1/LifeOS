@@ -1,5 +1,6 @@
 
 import {createGmailDraft,sendGmail,createCalendarEvent,syncGmail,syncCalendar,renewGmailWatch} from './google.js';
+import {scanAttention} from './attention.js';
 import {sendTransactional} from './email.js';import {appPublicUrl} from './urls.js';import {notifyDailyBrief,notifyNewAlerts} from './notifications.js';
 
 async function executeApproval(pool,userId,id){
@@ -55,7 +56,7 @@ export async function processJob(pool,j){
     case 'sync_gmail': return syncGmail(pool,j.user_id);
     case 'sync_calendar': return syncCalendar(pool,j.user_id);
     case 'renew_gmail_watch': return renewGmailWatch(pool,j.user_id);
-    case 'scan_proactive_alerts': { const r=await scanAlerts(pool,j.user_id); await notifyNewAlerts(pool,j.user_id); return r; }
+    case 'scan_proactive_alerts': { const r=await scanAlerts(pool,j.user_id); await scanAttention(pool,j.user_id); await notifyNewAlerts(pool,j.user_id); return r; }
     case 'generate_daily_brief': { const r=await generateBrief(pool,j.user_id); await notifyDailyBrief(pool,j.user_id); return r; }
     case 'send_verification_email': {
       const base=appPublicUrl(); if(!base) throw new Error('Public app URL is not configured for email links');

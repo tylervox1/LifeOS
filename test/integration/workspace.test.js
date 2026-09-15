@@ -1,0 +1,36 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import request from 'supertest';
+import {testPool,resetData} from './db.js';
+import {hashToken} from '../../server/crypto.js';
+import {scanAttention} from '../../server/attention.js';
+process.env.NO_LISTEN='true';process.env.DEMO_MODE='false';
+
+test('workspace layout, trackers, scans and history remain account isolated',async t=>{
+  const pool=testPool();t.after(()=>pool.end());await resetData(pool);
+  const {app,pool:appPool}=await import('../../server/index.js');t.after(()=>appPool.end());
+  const users=(await pool.query("INSERT INTO users(email) VALUES('layout-a@example.com'),('layout-b@example.com') RETURNING id")).rows;
+  for(let i=0;i<2;i++)await pool.query("INSERT INTO sessions(user_id,token_hash,csrf_hash,expires_at) VALUES($1,$2,$3,now()+interval '1 hour')",[users[i].id,hashToken('workspace-'+i),hashToken('csrf-'+i)]);
+  const call=(i,method,path)=>request(app)[method](path).set('Cookie','lifeos_session=workspace-'+i).set('x-csrf-token','csrf-'+i);
+  await request(app).get('/api/workspace').expect(401);
+  await request(app).put('/api/workspace/layout').set('Cookie','lifeos_session=workspace-0').send({hidden:['inbox']}).expect(403);
+  await call(0,'put','/api/workspace/layout').send({hidden:['inbox'],order:['tasks'],compact:true}).expect(200);
+  assert.deepEqual((await call(0,'get','/api/workspace')).body.layout.hidden,['inbox']);
+  assert.deepEqual((await call(1,'get','/api/workspace')).body.layout.hidden,[]);
+  const item=(await call(0,'post','/api/workspace/items').send({kind:'bill',title:'Electricity',amount:12.50,due_at:'2026-10-01T12:00:00Z'}).expect(201)).body;
+  await call(1,'patch','/api/workspace/items/'+item.id).send({status:'completed'}).expect(404);
+  await call(0,'patch','/api/workspace/items/'+item.id).send({status:'completed'}).expect(200);
+  await call(0,'patch','/api/workspace/items/'+item.id).send({status:'open'}).expect(200);
+  await call(0,'post','/api/workspace/items').send({kind:'bill',title:'Bad amount',amount:-1}).expect(400);
+  assert.equal((await call(1,'get','/api/workspace')).body.items.length,0);
+  await pool.query("INSERT INTO inbox_items(user_id,source,source_id,title,summary,occurred_at) VALUES($1,'gmail','test-mail','Your payment is overdue','Payment is due; review this bill.',now())",[users[0].id]);
+  const originalKey=process.env.OPENAI_API_KEY;delete process.env.OPENAI_API_KEY;t.after(()=>{if(originalKey)process.env.OPENAI_API_KEY=originalKey;});
+  const scan=await scanAttention(pool,users[0].id);assert.equal(scan.engine,'rules');
+  const suggestion=(await pool.query("SELECT * FROM attention_items WHERE user_id=$1 AND source_type='gmail'",[users[0].id])).rows[0];
+  assert.equal(suggestion.status,'needs_review');
+  await call(0,'patch','/api/workspace/items/'+suggestion.id).send({status:'dismissed'}).expect(200);
+  assert.equal((await scanAttention(pool,users[0].id)).skipped,true);
+  assert.equal((await pool.query('SELECT status FROM attention_items WHERE id=$1',[suggestion.id])).rows[0].status,'dismissed');
+  const exported=(await call(0,'get','/api/account/export')).body;
+  assert.equal(exported.attention_items.length,2);
+});
