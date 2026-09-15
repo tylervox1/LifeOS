@@ -1,6 +1,6 @@
 
 import {createGmailDraft,sendGmail,createCalendarEvent,syncGmail,syncCalendar,renewGmailWatch} from './google.js';
-import {scanAttention} from './attention.js';
+import {scanAttention,safeText} from './attention.js';
 import {sendTransactional} from './email.js';import {appPublicUrl} from './urls.js';import {notifyDailyBrief,notifyNewAlerts} from './notifications.js';
 
 async function executeApproval(pool,userId,id){
@@ -50,11 +50,18 @@ async function generateBrief(pool,userId){
   await pool.query(`INSERT INTO daily_briefs(user_id,local_date,content) VALUES($1,$2,$3)
     ON CONFLICT(user_id,local_date) DO UPDATE SET content=EXCLUDED.content,generated_at=now()`,[userId,date,text]);
 }
+async function syncWithStatus(pool,userId,provider,run){
+  try{return await run(pool,userId);}catch(e){
+    await pool.query(`INSERT INTO sync_state(user_id,provider,last_error) VALUES($1,$2,$3)
+      ON CONFLICT(user_id,provider) DO UPDATE SET last_error=EXCLUDED.last_error,updated_at=now()`,[userId,provider,safeText(e.message).slice(0,300)]);
+    throw e;
+  }
+}
 export async function processJob(pool,j){
   switch(j.job_type){
     case 'execute_approval': return executeApproval(pool,j.user_id,j.payload.approvalId);
-    case 'sync_gmail': return syncGmail(pool,j.user_id);
-    case 'sync_calendar': return syncCalendar(pool,j.user_id);
+    case 'sync_gmail': return syncWithStatus(pool,j.user_id,'gmail',syncGmail);
+    case 'sync_calendar': return syncWithStatus(pool,j.user_id,'calendar',syncCalendar);
     case 'renew_gmail_watch': return renewGmailWatch(pool,j.user_id);
     case 'scan_proactive_alerts': { const r=await scanAlerts(pool,j.user_id); await scanAttention(pool,j.user_id); await notifyNewAlerts(pool,j.user_id); return r; }
     case 'generate_daily_brief': { const r=await generateBrief(pool,j.user_id); await notifyDailyBrief(pool,j.user_id); return r; }
