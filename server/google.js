@@ -36,7 +36,7 @@ export async function handleGoogleCallback(pool,{code,state}){
      ON CONFLICT(user_id,provider,provider_account_id) DO UPDATE SET access_token_encrypted=EXCLUDED.access_token_encrypted,
      refresh_token_encrypted=COALESCE(EXCLUDED.refresh_token_encrypted,connected_accounts.refresh_token_encrypted),expires_at=EXCLUDED.expires_at,
      permissions=EXCLUDED.permissions,metadata=EXCLUDED.metadata,updated_at=now()`,
-    [s.userId,u.sub,encrypt(t.access_token),t.refresh_token?encrypt(t.refresh_token):null,new Date(Date.now()+t.expires_in*1000),t.scope?.split(' ')||[],{email:u.email,name:u.name}]
+    [s.userId,u.sub,encrypt(t.access_token),t.refresh_token?encrypt(t.refresh_token):null,new Date(Date.now()+t.expires_in*1000),JSON.stringify(t.scope?.split(' ')||[]),{email:u.email,name:u.name}]
   );return s.userId;
 }
 async function account(pool,userId){
