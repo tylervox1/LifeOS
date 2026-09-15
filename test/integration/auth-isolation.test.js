@@ -3,6 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import request from 'supertest';
 import {testPool,resetData} from './db.js';
+import {createInvite} from '../../server/invites.js';
 
 process.env.NO_LISTEN='true';
 process.env.DEMO_MODE='false';
@@ -15,10 +16,16 @@ test('two accounts remain isolated in export and CSRF protects mutations', async
   const {app,pool:appPool}=await import('../../server/index.js');
   t.after(()=>appPool.end());
 
+  process.env.REQUIRE_INVITE='true';
+  process.env.BETA_SIGNUPS_OPEN='true';
+  const invite=await createInvite(pool,{label:'isolation test',maxUses:2});
   const a=request.agent(app), b=request.agent(app);
-  const ar=await a.post('/api/auth/register').send({email:'a@example.com',password:'password123',name:'A'}).expect(201);
-  const br=await b.post('/api/auth/register').send({email:'b@example.com',password:'password123',name:'B'}).expect(201);
-  const csrfA=ar.body.csrf, csrfB=br.body.csrf;
+  await a.post('/api/auth/register').send({email:'missing@example.com',password:'password123'}).expect(403);
+  const ar=await a.post('/api/auth/register').send({email:'a@example.com',password:'password123',name:'A',inviteCode:invite.code}).expect(201);
+  const br=await b.post('/api/auth/register').send({email:'b@example.com',password:'password123',name:'B',inviteCode:invite.code}).expect(201);
+  const csrfA=ar.body.csrf;
+  assert.equal((await pool.query('SELECT used_count FROM beta_invites WHERE id=$1',[invite.id])).rows[0].used_count,2);
+  await a.post('/api/auth/register').send({email:'exhausted@example.com',password:'password123',inviteCode:invite.code}).expect(403);
 
   const ua=(await pool.query(`SELECT id FROM users WHERE email='a@example.com'`)).rows[0].id;
   const ub=(await pool.query(`SELECT id FROM users WHERE email='b@example.com'`)).rows[0].id;
