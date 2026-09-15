@@ -7,15 +7,18 @@ import {startFakeGoogle} from './fake-google.js';
 process.env.APP_SECRET=process.env.APP_SECRET||'01234567890123456789012345678901';
 process.env.GOOGLE_WRITE_ACTIONS_ENABLED='true';
 
-test('approved Gmail draft is executed by worker service and recorded', async ()=>{
+test('approved Gmail draft is executed by worker service and recorded', async t=>{
   const fake=await startFakeGoogle();
+  t.after(()=>fake.close());
   process.env.GOOGLE_GMAIL_BASE=fake.base+'/gmail';
   process.env.GOOGLE_CALENDAR_BASE=fake.base+'/calendar';
   process.env.GOOGLE_TOKEN_URL=fake.base+'/token';
   process.env.GOOGLE_USERINFO_URL=fake.base+'/userinfo';
   process.env.GOOGLE_REVOKE_URL=fake.base+'/revoke';
 
-  const pool=testPool(); await resetData(pool);
+  const pool=testPool();
+  t.after(()=>pool.end());
+  await resetData(pool);
   const {encrypt}=await import('../../server/crypto.js');
   const {proposeAction,decideApproval}=await import('../../server/actions.js');
   const {processJob}=await import('../../server/services.js');
@@ -38,5 +41,5 @@ test('approved Gmail draft is executed by worker service and recorded', async ()
   assert.ok(saved.executed_at);
   assert.equal(saved.execution_result.id,'draft-1');
 
-  await fake.close(); await pool.end();
+
 });

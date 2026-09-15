@@ -5,6 +5,7 @@ on:
 
 jobs:
   test:
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -23,7 +24,7 @@ jobs:
     env:
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/lifeos_test
       TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/lifeos_test
-      APP_SECRET: 01234567890123456789012345678901
+      APP_SECRET: "01234567890123456789012345678901"
       DEMO_MODE: "false"
       NODE_ENV: test
       NO_LISTEN: "true"

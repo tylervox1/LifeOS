@@ -9,8 +9,11 @@ process.env.DEMO_MODE='false';
 process.env.APP_SECRET=process.env.APP_SECRET||'01234567890123456789012345678901';
 
 test('two accounts remain isolated in export and CSRF protects mutations', async (t)=>{
-  const pool=testPool(); await resetData(pool);
-  const {app}=await import('../../server/index.js');
+  const pool=testPool();
+  t.after(()=>pool.end());
+  await resetData(pool);
+  const {app,pool:appPool}=await import('../../server/index.js');
+  t.after(()=>appPool.end());
 
   const a=request.agent(app), b=request.agent(app);
   const ar=await a.post('/api/auth/register').send({email:'a@example.com',password:'password123',name:'A'}).expect(201);
@@ -33,5 +36,5 @@ test('two accounts remain isolated in export and CSRF protects mutations', async
   const remain=(await pool.query(`SELECT email FROM users ORDER BY email`)).rows.map(x=>x.email);
   assert.deepEqual(remain,['b@example.com']);
 
-  await pool.end();
+
 });
